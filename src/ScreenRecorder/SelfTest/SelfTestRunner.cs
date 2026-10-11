@@ -7,6 +7,7 @@ using System.Threading;
 using ScreenRecorder.Capture;
 using ScreenRecorder.Capture.Audio;
 using ScreenRecorder.Shell;
+using System.Windows;
 using ScreenRecorder.UI;
 
 namespace ScreenRecorder.SelfTest;
@@ -32,6 +33,8 @@ internal static class SelfTestRunner
                 return InteractionTest();
             if (a.Equals("--savetest", StringComparison.OrdinalIgnoreCase))
                 return SavePipelineTest(args);
+            if (a.Equals("--shot", StringComparison.OrdinalIgnoreCase))
+                return AnnotatedScreenshot(args);
         }
 
         int seconds = 6;
@@ -337,6 +340,112 @@ internal static class SelfTestRunner
     }
 
     /// <summary>
+    /// 抓一张桌面截图，并把悬浮球的位置圈出来，用于 README 配图。
+    /// 用法：--shot [输出png路径]
+    /// </summary>
+    private static int AnnotatedScreenshot(string[] args)
+    {
+        Print("== 生成带标注的桌面截图 ==");
+        try
+        {
+            string outPath = args.Length > 1 && !args[1].StartsWith("--")
+                ? args[1]
+                : Path.Combine(Path.GetTempPath(), "ScreenRecorderCaptureTest", "annotated.png");
+
+            double ballLeft = AppSettings.Current.BallLeft;
+            double ballTop = AppSettings.Current.BallTop;
+            double ballSize = Math.Clamp(AppSettings.Current.BallSize, 48, 132);
+
+            var monitors = ScreenHelper.EnumerateMonitors();
+            var virtualBounds = ScreenHelper.VirtualDesktopBounds(monitors);
+
+            CapturedFrame? captured = null;
+            using (var screen = new ScreenCapture())
+            {
+                screen.FrameArrived += f => captured = f;
+                screen.Start(virtualBounds.Left, virtualBounds.Top, virtualBounds.Width, virtualBounds.Height, 30);
+                var sw = Stopwatch.StartNew();
+                while (captured == null && sw.ElapsedMilliseconds < 8000) Thread.Sleep(80);
+            }
+            if (captured == null) { Print("!! no frame captured"); return 40; }
+
+            var frame = captured;
+            System.Windows.Media.Imaging.BitmapSource src;
+            var handle = System.Runtime.InteropServices.GCHandle.Alloc(frame.Buffer,
+                System.Runtime.InteropServices.GCHandleType.Pinned);
+            try
+            {
+                src = System.Windows.Media.Imaging.BitmapSource.Create(
+                    frame.Width, frame.Height, 96, 96,
+                    System.Windows.Media.PixelFormats.Bgra32, null,
+                    handle.AddrOfPinnedObject(), frame.Stride * frame.Height, frame.Stride);
+                src.Freeze();
+            }
+            finally { handle.Free(); }
+
+            const double targetW = 1400;
+            double scale = targetW / frame.Width;
+            double w = targetW, h = Math.Round(frame.Height * scale);
+
+            // 悬浮球坐标是 DIP，乘 DPI 缩放才是截屏里的物理像素
+            double dpi = 1.0;
+            foreach (var m in monitors) { dpi = m.DpiX / 96.0; break; }
+            double cx = (ballLeft * dpi - virtualBounds.Left) * scale;
+            double cy = (ballTop * dpi - virtualBounds.Top) * scale;
+            double r = Math.Max(34, ballSize * dpi * scale * 0.95);
+
+            var visual = new System.Windows.Media.DrawingVisual();
+            using (var dc = visual.RenderOpen())
+            {
+                dc.DrawImage(src, new Rect(0, 0, w, h));
+
+                var ring = new System.Windows.Media.Pen(
+                    new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE2, 0x3B, 0x3B)), 3);
+                ring.Freeze();
+                dc.DrawEllipse(null, ring, new Point(cx, cy), r, r);
+
+                double tx = cx, ty = cy + r + 16;
+                if (ty > h - 40) ty = cy - r - 52;
+                dc.DrawLine(ring, new Point(cx, cy + r), new Point(cx, ty));
+
+                var text = new System.Windows.Media.FormattedText(
+                    "屏录球悬浮在这里",
+                    System.Globalization.CultureInfo.GetCultureInfo("zh-CN"),
+                    System.Windows.FlowDirection.LeftToRight,
+                    new System.Windows.Media.Typeface("Microsoft YaHei UI"),
+                    22,
+                    System.Windows.Media.Brushes.White,
+                    96);
+                double bw = text.Width + 22, bh = text.Height + 12;
+                double bx = Math.Min(Math.Max(4, cx - bw / 2), w - bw - 4);
+                var bg = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromArgb(0xD8, 0x16, 0x16, 0x1A));
+                bg.Freeze();
+                dc.DrawRoundedRectangle(bg, ring, new Rect(bx, ty, bw, bh), 8, 8);
+                dc.DrawText(text, new Point(bx + 11, ty + 6));
+            }
+
+            var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                (int)w, (int)h, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            rtb.Render(visual);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+            using (var fs = File.Create(outPath)) encoder.Save(fs);
+
+            Print($"  悬浮球位置(DIP)=({ballLeft:F0},{ballTop:F0}) 图上=({cx:F0},{cy:F0}) 半径={r:F0}");
+            Print($"  已保存: {outPath} ({new FileInfo(outPath).Length / 1024} KB) {w:F0}x{h:F0}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Print("!! 生成截图失败: " + ex);
+            return 41;
+        }
+    }
+
+    /// <summary>
     /// 悬浮球交互自检：
     ///  1) 真实路由事件是否被处理（验证事件确实绑上了处理函数）
     ///  2) 拖动是否真的移动窗口
@@ -402,6 +511,14 @@ internal static class SelfTestRunner
             {
                 Print("!! 单击没有触发录制");
                 exit = 21;
+            }
+
+            // 让它录够 2.5 秒，否则文件太小、无法判定保存是否正常
+            var warm = Stopwatch.StartNew();
+            while (warm.ElapsedMilliseconds < 2500)
+            {
+                Pump(ball);
+                Thread.Sleep(50);
             }
 
             // ---- 2) 拖动 ----

@@ -31,7 +31,8 @@ internal static class EntryPoint
                                 || args[0].Equals("--uitest", StringComparison.OrdinalIgnoreCase)
                                 || args[0].Equals("--stoptest", StringComparison.OrdinalIgnoreCase)
                                 || args[0].Equals("--interacttest", StringComparison.OrdinalIgnoreCase)
-                                || args[0].Equals("--savetest", StringComparison.OrdinalIgnoreCase)))
+                                || args[0].Equals("--savetest", StringComparison.OrdinalIgnoreCase)
+                                || args[0].Equals("--shot", StringComparison.OrdinalIgnoreCase)))
         {
             if (!AttachConsole(-1)) AllocConsole();
             try { Console.OutputEncoding = System.Text.Encoding.UTF8; } catch { }
@@ -42,6 +43,8 @@ internal static class EntryPoint
                     effective = new[] { "--selftest", "--capturetest" }.Concat(args[1..]).ToArray();
                 else if (args[0].Equals("--stoptest", StringComparison.OrdinalIgnoreCase))
                     effective = new[] { "--selftest", "--stoptest" }.Concat(args[1..]).ToArray();
+                else if (args[0].Equals("--shot", StringComparison.OrdinalIgnoreCase))
+                    effective = new[] { "--selftest", "--shot" }.Concat(args[1..]).ToArray();
                 else if (args[0].Equals("--savetest", StringComparison.OrdinalIgnoreCase))
                     effective = new[] { "--selftest", "--savetest" };
                 else if (args[0].Equals("--uitest", StringComparison.OrdinalIgnoreCase))
