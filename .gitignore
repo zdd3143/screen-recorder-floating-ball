@@ -1,0 +1,40 @@
+# ---------- 构建产物 ----------
+bin/
+obj/
+[Ll]og/          # 注意：中文目录名 logs 单独在下面排除
+logs/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+# 本机 dotnet/nuget 缓存（离线构建时用）
+.cli-home/
+.nuget/
+
+# ---------- 运行时生成 ----------
+settings.json
+debug.log
+
+# 录屏产物
+录屏_*.mp4
+selftest-out/
+自检输出/
+ScreenRecorderStopTest*/
+ScreenRecorderSaveTest*/
+
+# ffmpeg 编码器：体积 60+ MB，且分发需遵守其许可证，不纳入版本管理
+tools/ffmpeg/
+dist/**/ffmpeg.exe
+dist/**/ffmpeg/
+!tools/ffmpeg/.gitkeep
+
+# 临时文件（保存过程中的中间文件）
+.screenrec_*
+
+# ---------- 系统 ----------
+Thumbs.db
+desktop.ini
+*.tmp
+*.bak

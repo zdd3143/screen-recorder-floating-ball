@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- 本机无外网，无法还原 Microsoft.Windows.SDK.NET.Ref / CsWinRT 包，
+         因此不使用 WinRT 投影，全部通过原生 COM 互操作访问 Windows.Graphics.Capture 与 WASAPI。
+         视频编码/封装交给随程序分发的 ffmpeg。 -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>屏录球</AssemblyName>
+    <RootNamespace>ScreenRecorder</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <SelfContained>false</SelfContained>
+    <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
+    <Version>1.0.0</Version>
+    <AssemblyTitle>屏录球 - 悬浮球录屏</AssemblyTitle>
+    <Product>屏录球</Product>
+    <NoWarn>$(NoWarn);CA1416;CS0169;CS0649;CS8600;CS8604</NoWarn>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- 关掉 App.xaml 生成的 ApplicationDefinition（避免它与自定义入口点冲突） -->
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <StartupObject>ScreenRecorder.EntryPoint</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+</Project>
